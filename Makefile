@@ -10,7 +10,7 @@ K := $(foreach exec,$(EXECUTABLES),\
 
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-BINARY=your-app-name
+BINARY=kube-diff
 VERSION=1.0.1
 BUILD=`git rev-parse HEAD`
 PLATFORMS=darwin linux windows
@@ -24,17 +24,17 @@ default: build
 all: clean build_all install
 
 build:
-	go build ${LDFLAGS} -o ${BINARY}
+	go build ${LDFLAGS} -o ./releases/${BINARY}
 
 build_all:
 	$(foreach GOOS, $(PLATFORMS),\
-	$(foreach GOARCH, $(ARCHITECTURES), $(shell export GOOS=$(GOOS); export GOARCH=$(GOARCH); go build -v -o $(BINARY)-$(GOOS)-$(GOARCH))))
+	$(foreach GOARCH, $(ARCHITECTURES), $(shell export GOOS=$(GOOS); export GOARCH=$(GOARCH); go build -v -o ./releases/$(BINARY)-$(GOOS)-$(GOARCH))))
 
 install:
 	go install ${LDFLAGS}
 
 # Remove only what we've created
 clean:
-	find ${ROOT_DIR} -name '${BINARY}[-?][a-zA-Z0-9]*[-?][a-zA-Z0-9]*' -delete
+	find ${ROOT_DIR}/releases/ -name '${BINARY}[-?][a-zA-Z0-9]*[-?][a-zA-Z0-9]*' -delete
 
 .PHONY: check clean install build_all all

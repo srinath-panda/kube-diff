@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	v1beta1 "k8s.io/api/batch/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,31 +52,26 @@ func (op *output) Print() {
 }
 
 func FindDiff(srcClusterClient, dstClusterClient *kubernetes.Clientset) {
-	var wg sync.WaitGroup
-	guard := make(chan struct{}, 5)
 	srcCronJobs := getCronJobsList(srcClusterClient)
-
+	op := make([]string, 0)
 	for _, srcCron := range srcCronJobs.Items {
-
-		wg.Add(1)
-		guard <- struct{}{}
-		go func(srcCron v1beta1.CronJob, srcClusterClient, dstClusterClient *kubernetes.Clientset) {
-			defer wg.Done()
-			if !kubeDiff(srcCron, srcClusterClient, dstClusterClient) {
-				fmt.Println(srcCron.Name)
-			}
-			<-guard
-		}(srcCron, srcClusterClient, dstClusterClient)
+		if isSame, reason := kubeDiff(srcCron, srcClusterClient, dstClusterClient); !isSame {
+			op = append(op, fmt.Sprintf("%s, Reason: %s", srcCron.Name, reason))
+		}
 	}
-	wg.Wait()
+
+	for _, o := range op {
+		fmt.Println(o)
+	}
 }
 
 func SyncCron(srcClusterClient, dstClusterClient *kubernetes.Clientset) {
-	fmt.Println("*********************************** >> Syncing Cronjobs << **************************************************")
 
 	srcCronJobs := getCronJobsList(srcClusterClient)
 
-	print(len(srcCronJobs.Items))
+	msg := fmt.Sprintf("Syncing %d CronJobs", len(srcCronJobs.Items))
+	fmt.Printf("***********************************>> %s <<**************************************************", msg)
+	fmt.Println()
 
 	var cnt int = 0
 	for _, srcCron := range srcCronJobs.Items {
@@ -197,7 +191,7 @@ func checkEqual(srcmInfo, dstmInfo MirrorSpec) bool {
 func checkPanic(err error) {
 }
 
-func kubeDiff(srcCron v1beta1.CronJob, srcClusterClient, dstClusterClient *kubernetes.Clientset) bool {
+func kubeDiff(srcCron v1beta1.CronJob, srcClusterClient, dstClusterClient *kubernetes.Clientset) (bool, string) {
 
 	currSrcCron, err := srcClusterClient.BatchV1beta1().CronJobs("default").Get(context.Background(), srcCron.Name, v1.GetOptions{})
 	checkPanic(err)
@@ -206,17 +200,21 @@ func kubeDiff(srcCron v1beta1.CronJob, srcClusterClient, dstClusterClient *kuber
 
 	srcMirorInfo, errr := getMirroSpec(*currSrcCron)
 	if errr {
-		return false
+		return false, "cannot find in source cluster"
 	}
 	dstMirorInfo, errr := getMirroSpec(*currDstCron)
 	if errr {
-		return false
+		return false, "cannot find in destination cluster"
 	}
 	if !checkEqual(srcMirorInfo, dstMirorInfo) {
-		return false
+		return false, "diff in spec/image"
 	}
 
-	return true
+	if srcMirorInfo.Suspend != dstMirorInfo.Suspend {
+		return false, fmt.Sprintf("suspend in source = %s, destination = %s different.", srcMirorInfo.CronName, dstMirorInfo.CronName)
+	}
+
+	return true, ""
 }
 
 func getMirroSpec(cron v1beta1.CronJob) (MirrorSpec, bool) {

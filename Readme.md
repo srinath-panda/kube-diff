@@ -30,3 +30,9 @@ examples
 ```sh
 ./kube-diff -s "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v121-green" -d "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v123-blue" --diff
 ``` 
+
+# to build 
+
+```sh
+make build_all
+```

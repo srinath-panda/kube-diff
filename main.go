@@ -312,6 +312,9 @@ func getDeploymentsList(clientSet *kubernetes.Clientset) *appsv1.DeploymentList 
 
 func createConfig(config string) *rest.Config {
 	config_built, err := clientcmd.BuildConfigFromFlags("", config)
+
+	config_built.QPS = 100
+	config_built.Burst = 500
 	if err != nil {
 		panic(err.Error())
 	}
@@ -337,7 +340,7 @@ func main() {
 	deploy := parser.Flag("", "deploy", &argparse.Options{Help: "Optionally attempt to Sync all deployments from first cluster to second(without replicas)"})
 	enableCron := parser.Flag("", "cron", &argparse.Options{Help: "Optionally attempt to Sync all cronJobs from first cluster to second(without Suspend)"})
 
-	set_replicas := parser.Flag("r", "replicas", &argparse.Options{Help: "Optionally attempt to set replicas for all workloads from first cluster to second"})
+	set_replicas := parser.Flag("r", "replicas", &argparse.Options{Help: "Optionally attempt to set replicas for all workloads from first cluster to second (use with --deploy)"})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -353,6 +356,7 @@ func main() {
 
 	if *diff {
 		findDiff(srcClusterClient, dstClusterClient)
+		cron.FindDiff(srcClusterClient, dstClusterClient)
 		return
 	}
 
