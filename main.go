@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"kube-diff/check"
 	"kube-diff/cron"
+	"kube-diff/util"
+	wrokers "kube-diff/workers"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/akamensky/argparse"
 	appsv1 "k8s.io/api/apps/v1"
@@ -59,30 +61,11 @@ func (op *output) Print() {
 
 var setreplica bool = false
 
-func findDiff(srcClusterClient, dstClusterClient *kubernetes.Clientset) {
-	var wg sync.WaitGroup
-	guard := make(chan struct{}, 5)
+func syncDeployment(srcClusterClient, dstClusterClient *kubernetes.Clientset, mirror bool) {
+
 	srcDeployments := getDeploymentsList(srcClusterClient)
 
-	for _, srcdeploy := range srcDeployments.Items {
-
-		wg.Add(1)
-		guard <- struct{}{}
-		go func(srcdeploy appsv1.Deployment, srcClusterClient, dstClusterClient *kubernetes.Clientset) {
-			defer wg.Done()
-			if !kubeDiff(srcdeploy, srcClusterClient, dstClusterClient) {
-				fmt.Println(srcdeploy.Name)
-			}
-			<-guard
-		}(srcdeploy, srcClusterClient, dstClusterClient)
-	}
-	wg.Wait()
-	return
-}
-
-func syncDeployment(srcClusterClient, dstClusterClient *kubernetes.Clientset) {
-	srcDeployments := getDeploymentsList(srcClusterClient)
-
+	skippedDeployments := wrokers.GetWorkers()
 	msg := fmt.Sprintf("Syncing %d Deployments", len(srcDeployments.Items))
 	if setreplica {
 		msg += " with replicas"
@@ -93,17 +76,26 @@ func syncDeployment(srcClusterClient, dstClusterClient *kubernetes.Clientset) {
 	var cnt int = 0
 	for _, srcdeploy := range srcDeployments.Items {
 		cnt++
-		mInfo, err := getMirroSpec(srcdeploy)
+		mInfo, err := util.GetMirroSpec(srcdeploy)
 		if err {
-			continue
+			fmt.Printf("cannot create Mirror spec for %s", srcdeploy.Name)
+			panic(err)
 		}
+		if mirror {
+			if _, ok := skippedDeployments[strings.ToLower(mInfo.AppName)]; ok {
+				setreplica = false
+			} else {
+				setreplica = true
+			}
+		}
+
 		ChkupdateDestDeploy(dstClusterClient, mInfo, cnt)
 	}
 	op.Print()
 	fmt.Println("*********************************** >> Deployments Synced << **************************************************")
 }
 
-func ChkupdateDestDeploy(dstClusterClient *kubernetes.Clientset, srcmInfo MirrorSpec, cnt int) bool {
+func ChkupdateDestDeploy(dstClusterClient *kubernetes.Clientset, srcmInfo util.MirrorSpec, cnt int) bool {
 
 	dstDeploy, err := dstClusterClient.AppsV1().Deployments("default").Get(context.Background(), srcmInfo.DeployName, v1.GetOptions{})
 
@@ -112,9 +104,9 @@ func ChkupdateDestDeploy(dstClusterClient *kubernetes.Clientset, srcmInfo Mirror
 		return false
 	}
 
-	dstmInfo, _ := getMirroSpec(*dstDeploy)
+	dstmInfo, _ := util.GetMirroSpec(*dstDeploy)
 
-	if !checkEqual(srcmInfo, dstmInfo) {
+	if !srcmInfo.Equals(dstmInfo, setreplica) {
 		return UpdateDeploy(srcmInfo, dstmInfo, dstClusterClient, dstDeploy, cnt)
 	} else {
 		fmt.Printf("%d - Skipping Deploy %s as both are equal", cnt, srcmInfo.DeployName)
@@ -123,24 +115,24 @@ func ChkupdateDestDeploy(dstClusterClient *kubernetes.Clientset, srcmInfo Mirror
 	return true
 }
 
-func UpdateDeploy(srcmInfo MirrorSpec, dstmInfo MirrorSpec, dstClusterClient *kubernetes.Clientset, dstDeploy *appsv1.Deployment, cnt int) bool {
+func UpdateDeploy(srcmInfo util.MirrorSpec, dstmInfo util.MirrorSpec, dstClusterClient *kubernetes.Clientset, dstDeploy *appsv1.Deployment, cnt int) bool {
 	dstDeploy.Spec.Template.Labels["cfg"] = srcmInfo.AppConfig
 	dstDeploy.Spec.Template.Annotations["image"] = srcmInfo.ImageAnnotation
-	dstDeploy.Spec.Template.Labels["version"] = srcmInfo.version_label
-	dstDeploy.Spec.Template.Labels["tags.datadoghq.com/version"] = srcmInfo.dd_label
+	dstDeploy.Spec.Template.Labels["version"] = srcmInfo.Version_label
+	dstDeploy.Spec.Template.Labels["tags.datadoghq.com/version"] = srcmInfo.Dd_label
 
-	if strings.ToLower(srcmInfo.isSpec) == "false" {
-		dstDeploy.Spec.Template.Labels["infra-cfg"] = srcmInfo.infra_cfg
+	if strings.ToLower(srcmInfo.IsSpec) == "false" {
+		dstDeploy.Spec.Template.Labels["infra-cfg"] = srcmInfo.Infra_cfg
 	}
 
 	for idx, cnt := range dstDeploy.Spec.Template.Spec.Containers {
 		if cnt.Name == srcmInfo.DeployName {
-			dstDeploy.Spec.Template.Spec.Containers[idx].Image = getImage(cnt.Image, srcmInfo.Image, srcmInfo.clusterName, dstmInfo.clusterName)
+			dstDeploy.Spec.Template.Spec.Containers[idx].Image = getImage(cnt.Image, srcmInfo.Image, srcmInfo.ClusterName, dstmInfo.ClusterName)
 		}
 	}
 
 	if setreplica {
-		dstDeploy.Spec.Replicas = &srcmInfo.replicas
+		dstDeploy.Spec.Replicas = &srcmInfo.Replicas
 	}
 
 	fmt.Printf("%d - Updating Deploy %s", cnt, srcmInfo.DeployName)
@@ -178,127 +170,10 @@ func getClusterColorVersion(srcGCRstr string, srcclusterName string, dstclusterN
 	return strings.ReplaceAll(strings.ReplaceAll(srcGCRstr, srccolor, dstcolor), srcversion, dstversion)
 }
 
-func checkEqual(srcmInfo, dstmInfo MirrorSpec) bool {
-
-	if srcmInfo.appName != dstmInfo.appName {
-		return false
-	}
-	if srcmInfo.dd_label != dstmInfo.dd_label {
-		return false
-	}
-	if srcmInfo.version_label != dstmInfo.version_label {
-		return false
-	}
-
-	if srcmInfo.AppConfig != dstmInfo.AppConfig {
-		return false
-	}
-
-	if srcmInfo.DeployName != dstmInfo.DeployName {
-		return false
-	}
-
-	if srcmInfo.infra_cfg != dstmInfo.infra_cfg {
-		return false
-	}
-
-	if srcmInfo.ImageAnnotation != dstmInfo.ImageAnnotation {
-		return false
-	}
-
-	if setreplica && srcmInfo.replicas != dstmInfo.replicas {
-		return false
-	}
-	return true
-}
-
 func checkPanic(err error) {
-}
-
-func kubeDiff(srcdeploy appsv1.Deployment, srcClusterClient, dstClusterClient *kubernetes.Clientset) bool {
-
-	currSrcDeploy, err := srcClusterClient.AppsV1().Deployments("default").Get(context.Background(), srcdeploy.Name, v1.GetOptions{})
-	checkPanic(err)
-	currDstDeploy, err := dstClusterClient.AppsV1().Deployments("default").Get(context.Background(), srcdeploy.Name, v1.GetOptions{})
-	checkPanic(err)
-
-	srcMirorInfo, errr := getMirroSpec(*currSrcDeploy)
-	if errr {
-		return false
+	if err != nil {
+		panic(err)
 	}
-	dstMirorInfo, errr := getMirroSpec(*currDstDeploy)
-	if errr {
-		return false
-	}
-	if !checkEqual(srcMirorInfo, dstMirorInfo) {
-		return false
-	}
-
-	return true
-}
-
-func getMirroSpec(deploy appsv1.Deployment) (MirrorSpec, bool) {
-
-	appName := deploy.Labels["app"]
-
-	isSpec := deploy.Spec.Template.Labels["specfile"]
-
-	replicas := deploy.Spec.Replicas
-
-	DeployName := deploy.Name
-	AppConfig := deploy.Spec.Template.Labels["cfg"]
-
-	infra_cf := deploy.Spec.Template.Labels["infra-cfg"]
-
-	Image := getContainer(deploy, DeployName)
-	if Image == "" {
-		return MirrorSpec{}, true
-	}
-
-	ImageAnnotation := deploy.Spec.Template.Annotations["image"]
-	version_label := deploy.Spec.Template.Labels["version"]
-	dd_label := deploy.Spec.Template.Labels["tags.datadoghq.com/version"]
-
-	mSpec := MirrorSpec{}
-	mSpec.appName = appName
-	mSpec.DeployName = DeployName
-	mSpec.AppConfig = AppConfig
-	mSpec.Image = Image
-	mSpec.ImageAnnotation = ImageAnnotation
-	mSpec.version_label = version_label
-	mSpec.dd_label = dd_label
-	mSpec.dd_label = dd_label
-	mSpec.clusterName = deploy.Labels["cluster"]
-	mSpec.infra_cfg = infra_cf
-	mSpec.isSpec = isSpec
-	mSpec.replicas = *replicas
-
-	return mSpec, false
-}
-
-func getContainer(deploy appsv1.Deployment, DeployName string) string {
-
-	for _, container := range deploy.Spec.Template.Spec.Containers {
-		if container.Name == DeployName {
-			return container.Image
-		}
-	}
-	return ""
-}
-
-type MirrorSpec struct {
-	appName         string
-	DeployName      string
-	AppConfig       string
-	Image           string
-	ImageAnnotation string
-	version_label   string
-	dd_label        string
-	clusterName     string
-	cronName        string
-	infra_cfg       string
-	isSpec          string
-	replicas        int32
 }
 
 func getDeploymentsList(clientSet *kubernetes.Clientset) *appsv1.DeploymentList {
@@ -336,16 +211,23 @@ func main() {
 	src_config := parser.String("s", "src", &argparse.Options{Required: true, Help: "Path to the Source cluster's kubeconfig (Normally old cluster)"})
 	dest_config := parser.String("d", "dst", &argparse.Options{Required: true, Help: "Path to the Destination/target cluster's kubeconfig (Normally new cluster)"})
 
-	diff := parser.Flag("", "diff", &argparse.Options{Help: "Optionally attempt to diff all workloads from first cluster to second(without replicas)"})
 	deploy := parser.Flag("", "deploy", &argparse.Options{Help: "Optionally attempt to Sync all deployments from first cluster to second(without replicas)"})
 	enableCron := parser.Flag("", "cron", &argparse.Options{Help: "Optionally attempt to Sync all cronJobs from first cluster to second(without Suspend)"})
 
 	set_replicas := parser.Flag("r", "replicas", &argparse.Options{Help: "Optionally attempt to set replicas for all workloads from first cluster to second (use with --deploy)"})
+	mirror := parser.Flag("m", "mirror", &argparse.Options{Help: "Optionally attempt to mirror replicas for deploy and set the cronjob status"})
+	compare := parser.Flag("", "compare", &argparse.Options{Help: "Optionally attempt to compare clusters"})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
 		fmt.Print(parser.Usage(err))
 		os.Exit(1)
+	}
+
+	validateInputs(*src_config, *dest_config)
+	if *compare {
+		check.CheckCluster(*src_config, *dest_config)
+		return
 	}
 
 	srcClusterKConfig := createConfig(*src_config)
@@ -354,21 +236,28 @@ func main() {
 	srcClusterClient := newK8sConnectionConfig(srcClusterKConfig)
 	dstClusterClient := newK8sConnectionConfig(dstClusterKConfig)
 
-	if *diff {
-		findDiff(srcClusterClient, dstClusterClient)
-		cron.FindDiff(srcClusterClient, dstClusterClient)
-		return
-	}
-
 	if *set_replicas {
 		setreplica = true
 	}
 
-	if *deploy {
-		syncDeployment(srcClusterClient, dstClusterClient)
+	if *deploy || *mirror {
+		syncDeployment(srcClusterClient, dstClusterClient, *mirror)
 	}
 
 	if *enableCron {
 		cron.SyncCron(srcClusterClient, dstClusterClient)
 	}
+}
+
+func validateInputs(src_config, dest_config string) {
+	var confirm string
+	if strings.Contains(src_config, "v123") {
+		fmt.Println("The source cluster is v123. type 'yes' to confirm")
+		fmt.Scanln(&confirm)
+		if !strings.EqualFold(confirm, "yes") {
+			fmt.Println(("User exited"))
+			os.Exit(1)
+		}
+	}
+
 }

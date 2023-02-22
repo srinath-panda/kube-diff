@@ -9,13 +9,13 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${fileDirname}",
+            "program": "main.go",
             "args": [
                 "-s",
-                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.staging-eu-1-v121-green",
+                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-sk-1-v121-blue",
                 "-d",
-                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.staging-eu-1-v123-blue",
-                "--diff"
+                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-sk-1-v123-blue",
+                "--compare"
             ],
         }
     ]
