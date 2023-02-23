@@ -11,24 +11,31 @@
 kube-diff -h 
 ```
 examples 
-1. to sync deployment (with replicas) and crons
+
+
+1. to mirror deployment (with replicas) except the workers
+```sh
+./kube-diff -s "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v121-green" -d "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v123-blue"  --mirror
+``` 
+
+2. to sync deployment (with replicas) and crons
 ```sh
 ./kube-diff -s "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v121-green" -d "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v123-blue"  --deploy --replicas --cron
 ``` 
 
-2. to sync deployment only (without replicas)
+3. to sync deployment only (without replicas)
 ```sh
 ./kube-diff -s "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v121-green" -d "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v123-blue"  --deploy
 ``` 
 
-3. to sync crons
+4. to sync crons
 ```sh
 ./kube-diff -s "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v121-green" -d "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v123-blue" --cron
 ``` 
-4. to find diff 
+5. to find diff 
 
 ```sh
-./kube-diff -s "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v121-green" -d "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v123-blue" --diff
+./kube-diff -s "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v121-green" -d "/pd-box/docs/chapters/infra/k8s-configs/config.staging-eu-1-v123-blue" --compare
 ``` 
 
 # to build 
