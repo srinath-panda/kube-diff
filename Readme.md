@@ -3,7 +3,7 @@
 - the script works along with mirror script in pd-devops/charts
 - the script updates the app,infra and image in labels, annoatations and spec
 - can optionally set the replicas from source clusters
-
+- can find missing between the clusters resource objects and difference in DH labels/Images/annotations/replicas
 
 
 ## for usage , run 
