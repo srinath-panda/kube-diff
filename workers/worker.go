@@ -26,7 +26,7 @@ func GetWorkers() map[string]bool {
 		"otp-worker", "pablo-methods-worker", "pablo-refund-worker",
 		"raf-worker", "refund-worker", "raf-voucher-worker", "rewards-worker",
 		"subscription-core-worker", "partnerships-cvf-worker",
-		"corporate-api-order-placed-worker", "availability-indexer",
+		"corporate-api-order-placed-worker", "availability-indexer", "survey-answers-consumer",
 	}
 
 	skippedDeployments := make(map[string]bool)
@@ -59,7 +59,7 @@ func EnableWorkers(srcClusterClient, dstClusterClient *kubernetes.Clientset) {
 func UpdateReplicasForDeploy(deployName string, replica int32, ClusterClient *kubernetes.Clientset) error {
 	deployment, err := ClusterClient.AppsV1().Deployments("default").Get(context.Background(), deployName, v1.GetOptions{})
 	tryPanic(err)
-	deployment.Spec.Replicas = int32Ptr(1)
+	deployment.Spec.Replicas = int32Ptr(replica)
 	_, err = ClusterClient.AppsV1().Deployments("default").Update(context.Background(), deployment, v1.UpdateOptions{})
 	return err
 }

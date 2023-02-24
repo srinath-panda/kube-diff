@@ -47,9 +47,6 @@ func CheckCluster(srcConfigFile string, destConfigFile string) {
 		dstResources, err := dstDynamicClient.Resource(gvr).Namespace("default").List(context.Background(), v1.ListOptions{})
 		tryPanic(err)
 
-		print(len(srcResources.Items))
-		print(len(dstResources.Items))
-
 		finalOp[fmt.Sprintf("missing %s", gvr.Resource)] = findMissing(gvr.Resource, ToMap(srcResources.Items), ToMap(dstResources.Items))
 
 		if strings.EqualFold(gvr.Resource, "deployments") {
