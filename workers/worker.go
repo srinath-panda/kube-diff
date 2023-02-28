@@ -13,20 +13,20 @@ import (
 func GetWorkers() map[string]bool {
 
 	arr := []string{
-		"address-service-worker", "backend-cron", "backend-worker", "billing-engine-worker",
-		"billing-engine-aggregator", "catalog-dbsync-worker", "campaigns-management-worker",
-		"ccs-consumer", "corporate-api-order-payment-worker",
-		"corporate-api-order-updates-worker", "corporate-api-report-worker",
-		"corporate-api-subscription-worker", "customer-intelligence-worker",
-		"customer-worker", "incentives-odr-worker ", "incentives-pro-worker",
-		"job-scheduler-worker", "login-worker", "loyalty-worker",
-		"membership-mgmt-api", "menu-importer-worker", "menu-worker",
-		"mmt-mgmt-worker", "offers-mgmt-worker", "offers-worker", "order-service-worker",
-		"order-state-machine-worker", "order-tracking-notification-engine", "otg-worker",
-		"otp-worker", "pablo-methods-worker", "pablo-refund-worker",
-		"raf-worker", "refund-worker", "raf-voucher-worker", "rewards-worker",
-		"subscription-core-worker", "partnerships-cvf-worker",
-		"corporate-api-order-placed-worker", "availability-indexer", "survey-answers-consumer",
+		"address-service-worker", "availability-indexer", "auditlog-worker", "backend-cron",
+		"backend-worker", "billing-engine-worker", "billing-engine-aggregator",
+		"billing-receipt", "catalog-dbsync-worker", "campaigns-management-api-clean-campaigns",
+		"campaigns-management-worker", "ccs-consumer", "corporate-api-order-payment-worker",
+		"corporate-api-order-placed-worker", "corporate-api-order-updates-worker",
+		"corporate-api-report-worker", "corporate-api-subscription-worker",
+		"customer-intelligence-worker", "customer-worker", "geolocator-worker",
+		"incentives-odr-worker", "incentives-pro-worker", "job-scheduler-worker",
+		"login-worker", "loyalty-worker", "membership-mgmt-api", "menu-importer-worker",
+		"menu-worker", "mmt-mgmt-worker", "offers-mgmt-worker", "offers-worker",
+		"order-service-worker", "order-state-machine-worker", "order-tracking-notification-engine",
+		"otg-worker", "otp-worker", "pablo-methods-worker", "pablo-refund-worker",
+		"partnerships-cvf-worker", "raf-worker", "raf-voucher-worker", "refund-worker",
+		"rewards-worker", "subscription-core-worker", "survey-answers-consumer",
 	}
 
 	skippedDeployments := make(map[string]bool)
