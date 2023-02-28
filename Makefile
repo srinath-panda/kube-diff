@@ -38,3 +38,9 @@ clean:
 	find ${ROOT_DIR}/releases/ -name '${BINARY}[-?][a-zA-Z0-9]*[-?][a-zA-Z0-9]*' -delete
 
 .PHONY: check clean install build_all all
+
+manual:
+	@env GOOS=darwin GOARCH=amd64 go build -o ./releases/kube-diff-darwin-amd64
+	@env GOOS=darwin GOARCH=arm64 go build -o ./releases/kube-diff-darwin-arm64
+	@env GOOS=linux GOARCH=amd64 go build -o ./releases/kube-diff-linux-amd64
+
