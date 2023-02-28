@@ -63,6 +63,7 @@ var setreplica bool = false
 
 func syncDeployment(srcClusterClient, dstClusterClient *kubernetes.Clientset, mirror bool) {
 
+	skipMirrorSpecDeploy := map[string]bool{"oauth2-google": true, "synthetics-private-location": true}
 	srcDeployments := getDeploymentsList(srcClusterClient)
 
 	skippedDeployments := wrokers.GetWorkers()
@@ -79,7 +80,11 @@ func syncDeployment(srcClusterClient, dstClusterClient *kubernetes.Clientset, mi
 		mInfo, err := util.GetMirroSpec(srcdeploy)
 		if err {
 			fmt.Printf("cannot create Mirror spec for %s", srcdeploy.Name)
-			panic(err)
+			fmt.Println()
+			if _, ok := skipMirrorSpecDeploy[srcdeploy.Name]; !ok {
+				panic(err)
+			}
+			continue
 		}
 		if mirror {
 			if _, ok := skippedDeployments[strings.ToLower(mInfo.AppName)]; ok {
