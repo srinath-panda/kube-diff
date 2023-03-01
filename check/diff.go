@@ -56,7 +56,27 @@ func CheckCluster(srcConfigFile string, destConfigFile string) {
 			finalOp[fmt.Sprintf("Unmatched DH specific labels/Annotations/Image %s", gvr.Resource)] = CheckDepoySpec(ToMap(srcResources.Items), ToMap(dstResources.Items))
 		}
 	}
+	finalOp["Paused ScaledObject in Dest cluster"] = checkscaledobjects(dstDynamicClient)
 	printOP(finalOp)
+}
+
+func checkscaledobjects(dstDynamicClient *dynamic.DynamicClient) Differences {
+	gvr := schema.GroupVersionResource{Version: "v1alpha1", Resource: "scaledobjects", Group: "keda.sh"}
+	dstResources, err := dstDynamicClient.Resource(gvr).Namespace("default").List(context.Background(), v1.ListOptions{})
+	tryPanic(err)
+
+	missing := Differences{}
+	missing.DiffinDest = make([]string, 0)
+	missing.name = "Paused ScaledObject in Dest cluster"
+
+	for _, res := range ToMap(dstResources.Items) {
+		val := util.GetUnstructuredObjectNestedVal(res, false, "metadata", "annotations", "autoscaling.keda.sh/paused-replicas")
+
+		if val != nil {
+			missing.DiffinDest = append(missing.DiffinDest, res.GetName())
+		}
+	}
+	return missing
 }
 
 func CheckDepoySpec(srcResources, destResources map[string]unstructured.Unstructured) Differences {
