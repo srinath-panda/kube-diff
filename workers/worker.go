@@ -26,7 +26,7 @@ func GetWorkers() map[string]bool {
 		"order-service-worker", "order-state-machine-worker", "order-tracking-notification-engine",
 		"otg-worker", "otp-worker", "pablo-methods-worker", "pablo-refund-worker",
 		"partnerships-cvf-worker", "raf-worker", "raf-voucher-worker", "refund-worker",
-		"rewards-worker", "subscription-core-worker", "survey-answers-consumer",
+		"rewards-worker", "subscription-core-worker", "survey-answers-consumer", "subscription-scheduler-service",
 	}
 
 	skippedDeployments := make(map[string]bool)

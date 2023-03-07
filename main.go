@@ -213,8 +213,8 @@ func main() {
 
 	parser := argparse.NewParser("print", "Prints provided string to stdout")
 
-	src_config := parser.String("s", "src", &argparse.Options{Required: true, Help: "Path to the Source cluster's kubeconfig (Normally old cluster)"})
-	dest_config := parser.String("d", "dst", &argparse.Options{Required: true, Help: "Path to the Destination/target cluster's kubeconfig (Normally new cluster)"})
+	src_config := parser.String("s", "src", &argparse.Options{Required: false, Help: "Path to the Source cluster's kubeconfig (Normally old cluster)"})
+	dest_config := parser.String("d", "dst", &argparse.Options{Required: false, Help: "Path to the Destination/target cluster's kubeconfig (Normally new cluster)"})
 
 	deploy := parser.Flag("", "deploy", &argparse.Options{Help: "Optionally attempt to Sync all deployments from first cluster to second(without replicas)"})
 	enableCron := parser.Flag("", "cron", &argparse.Options{Help: "Optionally attempt to Sync all cronJobs from first cluster to second(without Suspend)"})
@@ -222,11 +222,18 @@ func main() {
 	set_replicas := parser.Flag("r", "replicas", &argparse.Options{Help: "Optionally attempt to set replicas for all workloads from first cluster to second (use with --deploy)"})
 	mirror := parser.Flag("m", "mirror", &argparse.Options{Help: "Optionally attempt to mirror replicas for deploy and set the cronjob status"})
 	compare := parser.Flag("", "compare", &argparse.Options{Help: "Optionally attempt to compare clusters"})
+	version := parser.Flag("v", "version", &argparse.Options{Help: "get version with release info"})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
 		fmt.Print(parser.Usage(err))
 		os.Exit(1)
+	}
+
+	if *version {
+		fmt.Printf("version: %v,", 0.01)
+		fmt.Println("Add support for new worker 'subscription-scheduler-service'")
+		return
 	}
 
 	validateInputs(*src_config, *dest_config)
@@ -256,6 +263,11 @@ func main() {
 
 func validateInputs(src_config, dest_config string) {
 	var confirm string
+
+	if src_config == "" || dest_config == "" {
+		fmt.Println("src config and dest config is empty.")
+		os.Exit(1)
+	}
 	if strings.Contains(src_config, "v123") {
 		fmt.Println("The source cluster is v123. type 'yes' to confirm")
 		fmt.Scanln(&confirm)
