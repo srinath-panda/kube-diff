@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kube-diff/util"
+	wr "kube-diff/workers"
 	"strings"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,27 +57,40 @@ func CheckCluster(srcConfigFile string, destConfigFile string) {
 			finalOp[fmt.Sprintf("Unmatched DH specific labels/Annotations/Image %s", gvr.Resource)] = CheckDepoySpec(ToMap(srcResources.Items), ToMap(dstResources.Items))
 		}
 	}
-	finalOp["Paused ScaledObject in Dest cluster"] = checkscaledobjects(dstDynamicClient)
+	worker, nonworker := checkscaledobjects(dstDynamicClient)
+	finalOp["Paused ScaledObject for workers in Dest cluster"] = worker
+	finalOp["Paused ScaledObject for NON-WORKERS in Dest cluster"] = nonworker
 	printOP(finalOp)
 }
 
-func checkscaledobjects(dstDynamicClient *dynamic.DynamicClient) Differences {
+func checkscaledobjects(dstDynamicClient *dynamic.DynamicClient) (Differences, Differences) {
 	gvr := schema.GroupVersionResource{Version: "v1alpha1", Resource: "scaledobjects", Group: "keda.sh"}
 	dstResources, err := dstDynamicClient.Resource(gvr).Namespace("default").List(context.Background(), v1.ListOptions{})
 	tryPanic(err)
 
-	missing := Differences{}
-	missing.DiffinDest = make([]string, 0)
-	missing.name = "Paused ScaledObject in Dest cluster"
+	workersMap := wr.GetWorkers()
+
+	workers := Differences{}
+	nonworkers := Differences{}
+	workers.DiffinDest = make([]string, 0)
+	nonworkers.DiffinDest = make([]string, 0)
+	workers.name = "Paused ScaledObject for workers in Dest cluster"
+	nonworkers.name = "Paused ScaledObject for NON-WORKERS in Dest cluster"
 
 	for _, res := range ToMap(dstResources.Items) {
 		val := util.GetUnstructuredObjectNestedVal(res, false, "metadata", "annotations", "autoscaling.keda.sh/paused-replicas")
+		appName := util.GetUnstructuredObjectNestedVal(res, true, "metadata", "labels", "app").(string)
 
 		if val != nil {
-			missing.DiffinDest = append(missing.DiffinDest, res.GetName())
+			if _, ok := workersMap[appName]; ok {
+				workers.DiffinDest = append(workers.DiffinDest, res.GetName())
+
+			} else {
+				nonworkers.DiffinDest = append(nonworkers.DiffinDest, res.GetName())
+			}
 		}
 	}
-	return missing
+	return workers, nonworkers
 }
 
 func CheckDepoySpec(srcResources, destResources map[string]unstructured.Unstructured) Differences {

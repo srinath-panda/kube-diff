@@ -12,9 +12,9 @@
             "program": "main.go",
             "args": [
                 "-s",
-                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-mj-1-v121-blue",
+                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-dk-1-v121-blue",
                 "-d",
-                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-mj-1-v123-blue",
+                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-dk-1-v123-blue",
                 "--compare"
             ],
         }

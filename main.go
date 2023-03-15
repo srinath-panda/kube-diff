@@ -231,8 +231,8 @@ func main() {
 	}
 
 	if *version {
-		fmt.Printf("version: %v,", 0.02)
-		fmt.Println("Add support for new worker 'subscription-scheduler-service'")
+		fmt.Printf("version: %v,", 0.03)
+		fmt.Println("Add support for scaled object to differenciate btwn worker and non worker")
 		return
 	}
 
