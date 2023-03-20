@@ -38,15 +38,15 @@ func (op *output) Print() {
 		}
 	}
 
-	fmt.Println("-----------------------------Failed due to spec file-----------------------------")
+	fmt.Println("-----------------------------Cron Failed due to spec file-----------------------------")
 	abc(op.InvalidSpecArr)
 	fmt.Println("---------------------------------------------------------------------------------------")
 
-	fmt.Println("-----------------------------Missing in Destination cluster-----------------------------")
+	fmt.Println("-----------------------------Cron Missing in Destination cluster-----------------------------")
 	abc(op.MissingDest)
 	fmt.Println("---------------------------------------------------------------------------------------")
 
-	fmt.Println("-----------------------------Failed top update due to update error-----------------------------")
+	fmt.Println("-----------------------------Cron Failed to update due to update error-----------------------------")
 	abc(op.UpdateFailed)
 	fmt.Println("---------------------------------------------------------------------------------------")
 }

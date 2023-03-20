@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"kube-diff/util"
-	wr "kube-diff/workers"
 	"strings"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,15 +15,12 @@ import (
 
 func getK8sMetadata(k8s_configFile string) *dynamic.DynamicClient {
 	config, err := clientcmd.BuildConfigFromFlags("", k8s_configFile)
-	tryPanic(err)
+	util.TryPanic(err)
 	config.QPS = 10
 	config.Burst = 20
 	dynamicClientSet, err := dynamic.NewForConfig(config)
-	tryPanic(err)
+	util.TryPanic(err)
 	return dynamicClientSet
-}
-
-func tryPanic(err error) {
 }
 
 type Differences struct {
@@ -33,7 +29,8 @@ type Differences struct {
 	DiffinDest []string
 }
 
-func CheckCluster(srcConfigFile string, destConfigFile string) {
+func CheckCluster(srcConfigFile string, destConfigFile string, workers map[string]bool) {
+	workersMap = workers
 
 	srcDynamicClient := getK8sMetadata(srcConfigFile)
 	dstDynamicClient := getK8sMetadata(destConfigFile)
@@ -43,10 +40,10 @@ func CheckCluster(srcConfigFile string, destConfigFile string) {
 	//Missing reources
 	for _, gvr := range getGVRs() {
 		srcResources, err := srcDynamicClient.Resource(gvr).Namespace("default").List(context.Background(), v1.ListOptions{})
-		tryPanic(err)
+		util.TryPanic(err)
 
 		dstResources, err := dstDynamicClient.Resource(gvr).Namespace("default").List(context.Background(), v1.ListOptions{})
-		tryPanic(err)
+		util.TryPanic(err)
 
 		finalOp[fmt.Sprintf("missing %s", gvr.Resource)] = findMissing(gvr.Resource, ToMap(srcResources.Items), ToMap(dstResources.Items))
 
@@ -56,6 +53,11 @@ func CheckCluster(srcConfigFile string, destConfigFile string) {
 			//check DH_tags, image, replicas
 			finalOp[fmt.Sprintf("Unmatched DH specific labels/Annotations/Image %s", gvr.Resource)] = CheckDepoySpec(ToMap(srcResources.Items), ToMap(dstResources.Items))
 		}
+		if strings.EqualFold(gvr.Resource, "cronjobs") {
+			diff1, diff2 := CheckCronSpec(ToMap(srcResources.Items), ToMap(dstResources.Items))
+			finalOp[fmt.Sprintf("UnMatched Cronjob Job status %s", gvr.Resource)] = diff1
+			finalOp[fmt.Sprintf("Unmatched DH specific labels/Annotations/Image %s", gvr.Resource)] = diff2
+		}
 	}
 	worker, nonworker := checkscaledobjects(dstDynamicClient)
 	finalOp["Paused ScaledObject for workers in Dest cluster"] = worker
@@ -63,12 +65,38 @@ func CheckCluster(srcConfigFile string, destConfigFile string) {
 	printOP(finalOp)
 }
 
+func CheckCronSpec(srcResources, destResources map[string]unstructured.Unstructured) (Differences, Differences) {
+	diff := Differences{}
+	diff.name = "Cron Spec"
+
+	diff2 := Differences{}
+	diff2.name = "Cron Spec"
+
+	for srcResName, srcRes := range srcResources {
+		if destRes, ok := destResources[srcResName]; ok {
+			srcMinfo, err := util.GetMirroSpecForUnstructuredForCron(srcRes)
+			if err {
+				panic("Cannot Create Mirror Object for src")
+			}
+			destMinfo, err := util.GetMirroSpecForUnstructuredForCron(destRes)
+			if err {
+				panic("Cannot Create Mirror Object for dest")
+			}
+
+			if !srcMinfo.Equals(destMinfo, false) {
+				diff.DiffinDest = append(diff.DiffinDest, srcResName)
+			}
+		}
+	}
+	return diff, diff2
+}
+
+var workersMap map[string]bool
+
 func checkscaledobjects(dstDynamicClient *dynamic.DynamicClient) (Differences, Differences) {
 	gvr := schema.GroupVersionResource{Version: "v1alpha1", Resource: "scaledobjects", Group: "keda.sh"}
 	dstResources, err := dstDynamicClient.Resource(gvr).Namespace("default").List(context.Background(), v1.ListOptions{})
-	tryPanic(err)
-
-	workersMap := wr.GetWorkers()
+	util.TryPanic(err)
 
 	workers := Differences{}
 	nonworkers := Differences{}
@@ -171,6 +199,7 @@ func getGVRs() []schema.GroupVersionResource {
 	gvrs = append(gvrs, schema.GroupVersionResource{Version: "v1", Group: "policy", Resource: "poddisruptionbudgets"})
 	gvrs = append(gvrs, schema.GroupVersionResource{Version: "v1", Resource: "ingresses", Group: "networking.k8s.io"})
 	gvrs = append(gvrs, schema.GroupVersionResource{Version: "v1", Resource: "horizontalpodautoscalers", Group: "autoscaling"})
+	gvrs = append(gvrs, schema.GroupVersionResource{Version: "v1beta1", Resource: "cronjobs", Group: "batch"})
 
 	return gvrs
 }

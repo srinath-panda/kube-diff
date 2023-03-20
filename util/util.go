@@ -19,6 +19,7 @@ type MirrorSpec struct {
 	Infra_cfg       string
 	IsSpec          string
 	Replicas        int32
+	Suspend         bool
 }
 
 func GetMirroSpec(deploy appsv1.Deployment) (MirrorSpec, bool) {
@@ -173,4 +174,55 @@ func GetMirroSpecForUnstructured(deploy unstructured.Unstructured) (MirrorSpec, 
 
 	return mSpec, false
 
+}
+
+func GetMirroSpecForUnstructuredForCron(cron unstructured.Unstructured) (MirrorSpec, bool) {
+
+	DeployName := cron.GetName()
+
+	appName := GetUnstructuredObjectNestedVal(cron, true, "metadata", "labels", "app").(string)
+	suspend := GetUnstructuredObjectNestedVal(cron, true, "spec", "suspend").(bool)
+
+	ImageAnnotation := checkReturnEmptyString(GetUnstructuredObjectNestedVal(cron, false, "spec", "jobTemplate", "spec", "template", "metadata", "annotations", "image"))
+	version_label := checkReturnEmptyString(GetUnstructuredObjectNestedVal(cron, false, "spec", "jobTemplate", "spec", "template", "metadata", "labels", "version"))
+	dd_label := checkReturnEmptyString(GetUnstructuredObjectNestedVal(cron, false, "spec", "jobTemplate", "spec", "template", "metadata", "labels", "tags.datadoghq.com/version"))
+	isSpec := checkReturnEmptyString(GetUnstructuredObjectNestedVal(cron, false, "spec", "jobTemplate", "spec", "template", "metadata", "labels", "specfile"))
+	infra_cf := checkReturnEmptyString(GetUnstructuredObjectNestedVal(cron, false, "spec", "jobTemplate", "spec", "template", "metadata", "labels", "infra-cfg"))
+	AppConfig := checkReturnEmptyString(GetUnstructuredObjectNestedVal(cron, false, "spec", "jobTemplate", "spec", "template", "metadata", "labels", "cfg"))
+
+	Image := ""
+	containers := GetUnstructuredObjectNestedVal(cron, true, "spec", "jobTemplate", "spec", "template", "spec", "containers").([]interface{})
+	for _, container := range containers {
+		containerMap := container.(map[string]interface{})
+		if strings.EqualFold(containerMap["name"].(string), DeployName) {
+			Image = containerMap["image"].(string)
+			break
+		}
+	}
+	if Image == "" {
+		return MirrorSpec{}, true
+	}
+
+	mSpec := MirrorSpec{}
+	mSpec.AppName = appName
+	mSpec.DeployName = DeployName
+	mSpec.AppConfig = AppConfig
+	mSpec.Image = Image
+	mSpec.ImageAnnotation = ImageAnnotation
+	mSpec.Version_label = version_label
+	mSpec.Dd_label = dd_label
+	mSpec.Dd_label = dd_label
+	mSpec.ClusterName = GetUnstructuredObjectNestedVal(cron, true, "metadata", "labels", "cluster").(string)
+	mSpec.Infra_cfg = infra_cf
+	mSpec.IsSpec = isSpec
+	mSpec.Replicas = int32(0)
+	mSpec.Suspend = suspend
+	return mSpec, false
+
+}
+
+func TryPanic(err error) {
+	if err != nil {
+		panic(err)
+	}
 }

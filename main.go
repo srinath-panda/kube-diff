@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"kube-diff/check"
 	"kube-diff/cron"
+	so "kube-diff/scaledobject"
 	"kube-diff/util"
 	wrokers "kube-diff/workers"
 	"os"
@@ -46,15 +47,15 @@ func (op *output) Print() {
 		}
 	}
 
-	fmt.Println("-----------------------------Failed due to spec file-----------------------------")
+	fmt.Println("-----------------------------deploy Failed due to spec file-----------------------------")
 	abc(op.InvalidSpecArr)
 	fmt.Println("---------------------------------------------------------------------------------------")
 
-	fmt.Println("-----------------------------Missing in Destination cluster-----------------------------")
+	fmt.Println("-----------------------------deploy Missing in Destination cluster-----------------------------")
 	abc(op.MissingDest)
 	fmt.Println("---------------------------------------------------------------------------------------")
 
-	fmt.Println("-----------------------------Failed top update due to update error-----------------------------")
+	fmt.Println("-----------------------------deploy Failed to update due to update error-----------------------------")
 	abc(op.UpdateFailed)
 	fmt.Println("---------------------------------------------------------------------------------------")
 }
@@ -215,6 +216,7 @@ func main() {
 
 	src_config := parser.String("s", "src", &argparse.Options{Required: false, Help: "Path to the Source cluster's kubeconfig (Normally old cluster)"})
 	dest_config := parser.String("d", "dst", &argparse.Options{Required: false, Help: "Path to the Destination/target cluster's kubeconfig (Normally new cluster)"})
+	worker_list := parser.String("w", "worker", &argparse.Options{Required: false, Help: "Path to the worker list (pd-devops/scripts/cluster_upgrade/000_worker_list)"})
 
 	deploy := parser.Flag("", "deploy", &argparse.Options{Help: "Optionally attempt to Sync all deployments from first cluster to second(without replicas)"})
 	enableCron := parser.Flag("", "cron", &argparse.Options{Help: "Optionally attempt to Sync all cronJobs from first cluster to second(without Suspend)"})
@@ -231,14 +233,16 @@ func main() {
 	}
 
 	if *version {
-		fmt.Printf("version: %v,", 0.03)
-		fmt.Println("Add support for scaled object to differenciate btwn worker and non worker")
+		fmt.Printf("version: %v,", 0.05)
+		fmt.Println("Mirror now scales updates the spec to src cluster and sets replica, updates the scaled object")
 		return
 	}
 
 	validateInputs(*src_config, *dest_config)
+	wrokers.SetWorkers(*worker_list)
+
 	if *compare {
-		check.CheckCluster(*src_config, *dest_config)
+		check.CheckCluster(*src_config, *dest_config, wrokers.GetWorkers())
 		return
 	}
 
@@ -256,7 +260,11 @@ func main() {
 		syncDeployment(srcClusterClient, dstClusterClient, *mirror)
 	}
 
-	if *enableCron {
+	if *mirror {
+		so.UpdateScaledObject(*src_config, *dest_config, wrokers.GetWorkers())
+	}
+
+	if *enableCron || *mirror {
 		cron.SyncCron(srcClusterClient, dstClusterClient)
 	}
 }
