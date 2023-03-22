@@ -237,6 +237,12 @@ const (
 	EnableWorkers
 )
 
-func GetClusterNamefromConfig(src_config string) {
+func GetClusterNamefromConfig(src_config string) string {
+	paths := strings.Split(src_config, "/")
+	cluster := paths[len(paths)-1]
 
+	test := strings.Split(cluster, ".")
+	print(test[len(test)-1])
+	clusterName := test[len(test)-1]
+	return clusterName
 }
