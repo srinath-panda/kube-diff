@@ -245,8 +245,8 @@ func main() {
 	}
 
 	if *version {
-		fmt.Printf("version: %v,", 0.05)
-		fmt.Println("Mirror now scales updates the spec to src cluster and sets replica, updates the scaled object")
+		fmt.Printf("version: %v,", 0.07)
+		fmt.Println("New support for enable workers")
 		return
 	}
 
