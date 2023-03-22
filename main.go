@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"kube-diff/check"
 	"kube-diff/cron"
 	so "kube-diff/scaledobject"
@@ -62,7 +64,7 @@ func (op *output) Print() {
 
 var setreplica bool = false
 
-func syncDeployment(srcClusterClient, dstClusterClient *kubernetes.Clientset, mirror bool) {
+func syncDeployment(srcClusterClient, dstClusterClient *kubernetes.Clientset, runType util.RunType) {
 
 	skipMirrorSpecDeploy := map[string]bool{"oauth2-google": true, "synthetics-private-location": true}
 	srcDeployments := getDeploymentsList(srcClusterClient)
@@ -87,8 +89,16 @@ func syncDeployment(srcClusterClient, dstClusterClient *kubernetes.Clientset, mi
 			}
 			continue
 		}
-		if mirror {
-			if _, ok := skippedDeployments[strings.ToLower(mInfo.AppName)]; ok {
+
+		//if worker managed in pd-app-charts , skip for --deploy and --mirror options
+		_, isWorker := skippedDeployments[strings.ToLower(mInfo.AppName)]
+		if runType != util.EnableWorkers && strings.EqualFold(mInfo.DH_repo, "pd-app-charts") && isWorker {
+			fmt.Printf("%d - Skipping Deploy %s as its worker & managed by pd-app-charts", cnt, mInfo.DeployName)
+			continue
+		}
+		//if mirror then scale replica for only workers not managed by pd-app-charts
+		if runType == util.Mirror {
+			if isWorker {
 				setreplica = false
 			} else {
 				setreplica = true
@@ -225,6 +235,8 @@ func main() {
 	mirror := parser.Flag("m", "mirror", &argparse.Options{Help: "Optionally attempt to mirror replicas for deploy and set the cronjob status"})
 	compare := parser.Flag("", "compare", &argparse.Options{Help: "Optionally attempt to compare clusters"})
 	version := parser.Flag("v", "version", &argparse.Options{Help: "get version with release info"})
+	enableWorkers := parser.Flag("", "enableworkers", &argparse.Options{Help: "Enable workers, scaledobject in dest cluster and disable it in old cluster"})
+	saveState := parser.Flag("", "savestate", &argparse.Options{Help: "save state of deployments"})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -252,16 +264,39 @@ func main() {
 	srcClusterClient := newK8sConnectionConfig(srcClusterKConfig)
 	dstClusterClient := newK8sConnectionConfig(dstClusterKConfig)
 
+	if *saveState {
+		SavereplicasForAllDeployment(srcClusterClient)
+		return
+	}
+
+	var runType util.RunType
+
+	if *mirror {
+		runType = util.Mirror
+	} else if *deploy {
+		runType = util.Deploy
+	} else if *enableWorkers {
+		runType = util.EnableWorkers
+	}
+
 	if *set_replicas {
 		setreplica = true
 	}
 
+	if *enableWorkers {
+		//Sync replicas from the old cluster for workers , scale down replicas in old cluster
+		wrokers.EnableWorkers(srcClusterClient, dstClusterClient, wrokers.GetWorkers(), util.GetClusterNamefromConfig(*src_config))
+		//unpause the scaledobje
+		nMap, _ := wrokers.GetMirrorInfoFromState(util.GetClusterNamefromConfig(*src_config))
+		so.UpdateScaledObject2(*src_config, *dest_config, wrokers.GetWorkers(), util.EnableWorkers, nMap)
+	}
+
 	if *deploy || *mirror {
-		syncDeployment(srcClusterClient, dstClusterClient, *mirror)
+		syncDeployment(srcClusterClient, dstClusterClient, runType)
 	}
 
 	if *mirror {
-		so.UpdateScaledObject(*src_config, *dest_config, wrokers.GetWorkers())
+		so.UpdateScaledObject(*src_config, *dest_config, wrokers.GetWorkers(), util.Mirror)
 	}
 
 	if *enableCron || *mirror {
@@ -285,4 +320,24 @@ func validateInputs(src_config, dest_config string) {
 		}
 	}
 
+}
+
+func SavereplicasForAllDeployment(srcClusterClient *kubernetes.Clientset) {
+	deployments, err := srcClusterClient.AppsV1().Deployments("default").List(context.Background(), v1.ListOptions{})
+	util.TryPanic(err)
+	skipMirrorSpecDeploy := map[string]bool{"oauth2-google": true, "synthetics-private-location": true}
+
+	mMap := make(map[string]util.MirrorSpec)
+	var mInfo util.MirrorSpec
+	for _, deploy := range deployments.Items {
+		if _, ok := skipMirrorSpecDeploy[deploy.Name]; !ok {
+			mInfo, _ = util.GetMirroSpec(deploy)
+			if _, o := mMap[deploy.Name]; !o {
+				mMap[deploy.Name] = mInfo
+			}
+		}
+	}
+
+	b, _ := json.Marshal(mMap)
+	ioutil.WriteFile(fmt.Sprintf("%v.json", mInfo.ClusterName), b, 0644)
 }

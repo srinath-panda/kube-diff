@@ -20,6 +20,7 @@ type MirrorSpec struct {
 	IsSpec          string
 	Replicas        int32
 	Suspend         bool
+	DH_repo         string
 }
 
 func GetMirroSpec(deploy appsv1.Deployment) (MirrorSpec, bool) {
@@ -57,6 +58,7 @@ func GetMirroSpec(deploy appsv1.Deployment) (MirrorSpec, bool) {
 	mSpec.Infra_cfg = infra_cf
 	mSpec.IsSpec = isSpec
 	mSpec.Replicas = *replicas
+	mSpec.DH_repo = deploy.Spec.Template.Labels["dh/repo"]
 
 	return mSpec, false
 }
@@ -225,4 +227,16 @@ func TryPanic(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+type RunType int
+
+const (
+	Deploy RunType = iota
+	Mirror
+	EnableWorkers
+)
+
+func GetClusterNamefromConfig(src_config string) {
+
 }

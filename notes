@@ -1,0 +1,54 @@
+1. make mirror 
+ - we set all replicas to 0
+ - pause all SO 
+
+
+2. kd --deploy --cron  
+   -- update the uimage tag and config for all workers and non workers but wont scale for anything
+expection:
+   -- update image/tag for all except workers managed in pd-app-charts but wont scale for anything
+
+
+3. kd --mirror  
+  -- scale up replica for non workers
+  -- update the image tag and config 
+  -- unpause scaledobject for non workers 
+expection:
+  -- update image/tag for all except workers managed in pd-app-charts
+  -- scale up replica for non workers
+  -- unpause scaledobject for non workers 
+
+
+4. enable-workers.sh (implement in this kd code) 
+    - upscale the replica for all workers in new 
+    - downscale the replica for all workers in old
+    - unpasue scaledobject for all workers in new 
+expection:
+  - update image/tag for all  services/worker managed in pd-app-charts & pd-devops
+  - scale up replica for all workers in new cluster and downscale in old cluster + set the image to 'change-me' in old cluster 
+  
+   ( qn:- do we need to put the image to changeme and dont downscale it ??? )
+  - unpause the scaledobjects for all works 
+
+
+
+
+
+prod-hk -- 23/03
+prod-sg -- 
+
+-------------------------------------
+prod-eu  -- 30/03 Sri/eric
+
+prod-ph -- 27/03  fahad/dave
+prod-asia -- 28/03 dave/Gio
+
+prod-tr  -- gio/fahad
+prod-th -- gio/fahad
+
+
+
+
+
+
+

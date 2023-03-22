@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func UpdateScaledObject(src_config, destConfigFile string, workersMap map[string]bool) {
+func UpdateScaledObject(src_config, destConfigFile string, workersMap map[string]bool, runType util.RunType) {
 	gvr := schema.GroupVersionResource{Version: "v1alpha1", Resource: "scaledobjects", Group: "keda.sh"}
 
 	dstDynamicClient := getK8sMetadata(destConfigFile)
@@ -26,10 +26,12 @@ func UpdateScaledObject(src_config, destConfigFile string, workersMap map[string
 		so := soObject.DeepCopy()
 
 		appName := util.GetUnstructuredObjectNestedVal(*so, true, "metadata", "labels", "app").(string)
-		if _, ok := workersMap[appName]; ok {
-			fmt.Printf("Skipping ScaledObject %s, since its a worker", so.GetName())
-			fmt.Println()
-			continue
+		if runType != util.EnableWorkers {
+			if _, ok := workersMap[appName]; ok {
+				fmt.Printf("Skipping ScaledObject %s, since its a worker", so.GetName())
+				fmt.Println()
+				continue
+			}
 		}
 
 		replica, err := getDeployReplica(srcDynamicClient, so.GetName())
@@ -42,6 +44,54 @@ func UpdateScaledObject(src_config, destConfigFile string, workersMap map[string
 				fmt.Printf("Unpause ScaledObject %s", so.GetName())
 				fmt.Println()
 
+				err = unstructured.SetNestedField(so.Object, nil, "metadata", "annotations")
+				util.TryPanic(err)
+				_, err = dstDynamicClient.Resource(gvr).Namespace("default").Update(context.Background(), so, v1.UpdateOptions{})
+				util.TryPanic(err)
+			} else {
+				fmt.Printf("Skipping ScaledObject %s since replica is %v ", so.GetName(), replica)
+				fmt.Println()
+			}
+		} else {
+			fmt.Printf("Skipping ScaledObject %s, since its was already unpaused", so.GetName())
+			fmt.Println()
+		}
+
+	}
+
+}
+
+func UpdateScaledObject2(src_config, destConfigFile string, workersMap map[string]bool, runType util.RunType, mMap map[string]util.MirrorSpec) {
+	gvr := schema.GroupVersionResource{Version: "v1alpha1", Resource: "scaledobjects", Group: "keda.sh"}
+
+	dstDynamicClient := getK8sMetadata(destConfigFile)
+	// srcDynamicClient := getK8sMetadata(src_config)
+	dstResources, err := dstDynamicClient.Resource(gvr).Namespace("default").List(context.Background(), v1.ListOptions{})
+	util.TryPanic(err)
+
+	for _, scaledObject := range dstResources.Items {
+
+		soObject, _ := dstDynamicClient.Resource(gvr).Namespace("default").Get(context.Background(), scaledObject.GetName(), v1.GetOptions{})
+		so := soObject.DeepCopy()
+
+		appName := util.GetUnstructuredObjectNestedVal(*so, true, "metadata", "labels", "app").(string)
+		if runType != util.EnableWorkers {
+			if _, ok := workersMap[appName]; ok {
+				fmt.Printf("Skipping ScaledObject %s, since its a worker", so.GetName())
+				fmt.Println()
+				continue
+			}
+		}
+
+		mInfo := mMap[so.GetName()]
+		replica := mInfo.Replicas
+
+		val := util.GetUnstructuredObjectNestedVal(*so, false, "metadata", "annotations", "autoscaling.keda.sh/paused-replicas")
+
+		if val != nil {
+			if replica > 0 {
+				fmt.Printf("Unpause ScaledObject %s", so.GetName())
+				fmt.Println()
 				err = unstructured.SetNestedField(so.Object, nil, "metadata", "annotations")
 				util.TryPanic(err)
 				_, err = dstDynamicClient.Resource(gvr).Namespace("default").Update(context.Background(), so, v1.UpdateOptions{})
