@@ -15,7 +15,7 @@
                 "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-hk-1-v121-blue",
                 "-d",
                 "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-hk-1-v123-blue",
-                "--compare",
+                "--savestate",
                 "-w", 
                 "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-devops/scripts/cluster_upgrade/000_workers.list"
             ],

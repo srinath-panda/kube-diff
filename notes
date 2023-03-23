@@ -24,11 +24,11 @@ while switch
 3. kd --savestate 
 - saves the state of the src cluster
 
-4. kd --enableworkers 
-- enables the workers 
+4. kd --enableworkers , expects the --savestate to be run
+- scale up the workers in new cluster
+- set the replica to 0 for  all workers in  old and set the correct replica in the new cluster based on the saved state
 - set the image as change-me to only for workers managed in pd-app-charts in src cluster
-- set the replica to 0 for both all workers in  old and new cluster
-- unpause all the SO
+- unpause all the SO for all workers 
 
 
 
@@ -59,6 +59,10 @@ prod-asia -- 28/03 dave/Gio
 
 prod-tr  -- gio/fahad
 prod-th -- gio/fahad
+
+
+
+
 
 
 
