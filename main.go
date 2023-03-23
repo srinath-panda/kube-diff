@@ -94,6 +94,7 @@ func syncDeployment(srcClusterClient, dstClusterClient *kubernetes.Clientset, ru
 		_, isWorker := skippedDeployments[strings.ToLower(mInfo.AppName)]
 		if runType != util.EnableWorkers && strings.EqualFold(mInfo.DH_repo, "pd-app-charts") && isWorker {
 			fmt.Printf("%d - Skipping Deploy %s as its worker & managed by pd-app-charts", cnt, mInfo.DeployName)
+			fmt.Println()
 			continue
 		}
 		//if mirror then scale replica for only workers not managed by pd-app-charts
@@ -151,7 +152,7 @@ func UpdateDeploy(srcmInfo util.MirrorSpec, dstmInfo util.MirrorSpec, dstCluster
 		dstDeploy.Spec.Replicas = &srcmInfo.Replicas
 	}
 
-	fmt.Printf("%d - Updating Deploy %s", cnt, srcmInfo.DeployName)
+	fmt.Printf("%d - Updating Deploy %s, repo: %v ", cnt, srcmInfo.DeployName, srcmInfo.DH_repo)
 	fmt.Println()
 	_, err := dstClusterClient.AppsV1().Deployments("default").Update(context.Background(), dstDeploy, v1.UpdateOptions{})
 
