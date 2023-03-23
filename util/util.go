@@ -246,3 +246,12 @@ func GetClusterNamefromConfig(src_config string) string {
 	clusterName := test[len(test)-1]
 	return clusterName
 }
+
+func GetRepoFromunstructured(resObj unstructured.Unstructured) string {
+	val := GetUnstructuredObjectNestedVal(resObj, false, "metadata", "labels", "dh/repo")
+
+	if val == nil {
+		return ""
+	}
+	return val.(string)
+}

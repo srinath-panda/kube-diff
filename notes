@@ -1,3 +1,4 @@
+on the day of switch
 1. make mirror 
  - we set all replicas to 0
  - pause all SO 
@@ -19,6 +20,19 @@ expection:
   -- unpause scaledobject for non workers 
 
 
+while switch 
+3. kd --savestate 
+- saves the state of the src cluster
+
+4. kd --enableworkers 
+- enables the workers 
+- set the image as change-me to only for workers managed in pd-app-charts in src cluster
+- set the replica to 0 for both all workers in  old and new cluster
+- unpause all the SO
+
+
+
+the below is not used anymore 
 4. enable-workers.sh (implement in this kd code) 
     - upscale the replica for all workers in new 
     - downscale the replica for all workers in old

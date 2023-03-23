@@ -12,10 +12,10 @@
             "program": "main.go",
             "args": [
                 "-s",
-                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-sg-1-v121-blue",
+                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-hk-1-v121-blue",
                 "-d",
-                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-sg-1-v123-blue",
-                "--enableworkers",
+                "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-box/docs/Infrastructure/Reference-Docs/k8s-configs/config.prod-hk-1-v123-blue",
+                "--compare",
                 "-w", 
                 "/Users/srinathrangaramanujam/Documents/Srinath/deliveryhero/src/pd-devops/scripts/cluster_upgrade/000_workers.list"
             ],

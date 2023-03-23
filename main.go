@@ -245,8 +245,8 @@ func main() {
 	}
 
 	if *version {
-		fmt.Printf("version: %v,", 0.07)
-		fmt.Println("New support for enable workers")
+		fmt.Printf("version: %v,", 0.09)
+		fmt.Println("added repo to compare tool")
 		return
 	}
 

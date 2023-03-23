@@ -111,10 +111,10 @@ func checkscaledobjects(dstDynamicClient *dynamic.DynamicClient) (Differences, D
 
 		if val != nil {
 			if _, ok := workersMap[appName]; ok {
-				workers.DiffinDest = append(workers.DiffinDest, res.GetName())
+				workers.DiffinDest = append(workers.DiffinDest, fmt.Sprintf("%v, repo: %v", res.GetName(), util.GetRepoFromunstructured(res)))
 
 			} else {
-				nonworkers.DiffinDest = append(nonworkers.DiffinDest, res.GetName())
+				nonworkers.DiffinDest = append(nonworkers.DiffinDest, fmt.Sprintf("%v, repo: %v", res.GetName(), util.GetRepoFromunstructured(res)))
 			}
 		}
 	}
@@ -153,7 +153,7 @@ func checkReplicas(srcResources, destResources map[string]unstructured.Unstructu
 			srcreplicas := util.GetUnstructuredObjectNestedVal(srcRes, true, "spec", "replicas").(int64)
 			destreplicas := util.GetUnstructuredObjectNestedVal(destRes, true, "spec", "replicas").(int64)
 			if srcreplicas != destreplicas {
-				diff.DiffinDest = append(diff.DiffinDest, fmt.Sprintf("%s, Replicas src = %v, dest = %v", srcResName, srcreplicas, destreplicas))
+				diff.DiffinDest = append(diff.DiffinDest, fmt.Sprintf("%s, Replicas src = %v, dest = %v, repo = %v", srcResName, srcreplicas, destreplicas, util.GetRepoFromunstructured(destRes)))
 			}
 		}
 	}
@@ -181,9 +181,9 @@ func findMissing(resource string, lhs, rhs map[string]unstructured.Unstructured)
 func getMissingElemnets(lhs, rhs map[string]unstructured.Unstructured) []string {
 
 	missing := make([]string, 0)
-	for k := range lhs {
+	for k, resObj := range lhs {
 		if _, ok := rhs[k]; !ok {
-			missing = append(missing, k)
+			missing = append(missing, fmt.Sprintf("%v, repo: %v", k, util.GetRepoFromunstructured(resObj)))
 		}
 	}
 	return missing
