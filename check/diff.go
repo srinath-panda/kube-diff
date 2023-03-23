@@ -153,7 +153,8 @@ func checkReplicas(srcResources, destResources map[string]unstructured.Unstructu
 			srcreplicas := util.GetUnstructuredObjectNestedVal(srcRes, true, "spec", "replicas").(int64)
 			destreplicas := util.GetUnstructuredObjectNestedVal(destRes, true, "spec", "replicas").(int64)
 			if srcreplicas != destreplicas {
-				diff.DiffinDest = append(diff.DiffinDest, fmt.Sprintf("%s, Replicas src = %v, dest = %v, repo = %v", srcResName, srcreplicas, destreplicas, util.GetRepoFromunstructured(destRes)))
+				_, isWorker := workersMap[util.GetUnstructuredObjectNestedVal(srcRes, true, "metadata", "labels", "app").(string)]
+				diff.DiffinDest = append(diff.DiffinDest, fmt.Sprintf("%s, Replicas src = %v, dest = %v, repo = %v, isWorker = %v", srcResName, srcreplicas, destreplicas, util.GetRepoFromunstructured(destRes), isWorker))
 			}
 		}
 	}
